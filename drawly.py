@@ -149,6 +149,27 @@ circle_f(-300, 200, 30) # Луна"""
                     f = curr_color if "_f" in cmd else ""
                     self.canvas.create_polygon(pts, outline=curr_color, fill=f, width=curr_width)
 
+                elif cmd == "file_sprite":
+                    # Парсим аргументы: x, y, scale, "filename"
+                    # Используем регулярку, чтобы корректно вытащить имя файла в кавычках
+                    file_match = re.search(r'([^,]+),([^,]+),([^,]+),\s*["\']([^"\']+)["\']', raw_args)
+                    if file_match:
+                        fx = float(file_match.group(1).strip())
+                        fy = float(file_match.group(2).strip())
+                        fs = float(file_match.group(3).strip())
+                        fname = file_match.group(4).strip()
+                        
+                        try:
+                            with open(fname, "r", encoding="utf-8") as f:
+                                file_content = f.read()
+                                # Убираем комментарии из загруженного файла
+                                file_content = self.strip_comments(file_content)
+                                # Рекурсивно выполняем команды из файла
+                                self.parse_and_execute(file_content, dx + fx*scale, dy + fy*scale, scale * fs, curr_color, curr_width)
+                        except FileNotFoundError:
+                            print(f"Error: File {fname} not found")
+                    continue
+
                 # 4. Вызов спрайта
                 elif cmd in self.sprites:
                     sx = args[0] if len(args) > 0 else 0
