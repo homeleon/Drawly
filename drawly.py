@@ -1,6 +1,6 @@
 import tkinter as tk
 import re
-from PIL import ImageGrab
+from PIL import ImageGrab, Image, ImageTk
 import win32clipboard
 from io import BytesIO
 import time
@@ -29,33 +29,7 @@ class VibePainter:
         self.code_text = tk.Text(root, height=15, width=95, font=("Consolas", 11), 
                                  bg="#1e1e1e", fg="#d4d4d4", insertbackground="white")
         self.code_text.pack(pady=5)
-        
-        # Демо-код для проверки всех функций
-        demo = """bg(black)
-sprite star {
-  color(yellow)
-  width(1)
-  line(0, 10, 0, -10)
-  line(-10, 0, 10, 0)
-}
-
-sprite tree {
-  color(brown)
-  rect_f(0, -20, 15, 40)
-  color(green)
-  polygon_f(-40, 0, 40, 0, 0, 60)
-}
-
-star(-200, 200)
-star(150, 180, 0.5)
-tree(0, -100, 1.5)
-tree(150, -80)
-
-color(white)
-text(0, 250, 20, "Drawly Engine V1.0")
-circle_f(-300, 200, 30) # Луна"""
-        #self.code_text.insert("1.0", demo)
-
+       
         # 3. Панель управления
         btn_frame = tk.Frame(root)
         btn_frame.pack(fill="x", padx=10)
@@ -103,7 +77,21 @@ circle_f(-300, 200, 30) # Луна"""
             try:
                 # 1. Управление окружением
                 if cmd == "bg":
-                    self.canvas.config(bg=raw_args.strip().strip("'\""))
+                    prm = raw_args.strip().strip("'\"")
+                    if "." in prm:
+                        image = Image.open(prm)
+                        # Масштабируем под размер canvas
+                        image = image.resize((800, 600), Image.Resampling.LANCZOS)
+                        photo = ImageTk.PhotoImage(image)
+
+                        # Рисуем на canvas
+                        self.canvas.create_image(0, 0, image=photo, anchor="nw")
+                        # Важно сохранить ссылку на изображение!
+                        self.canvas.image = photo
+                        self.draw_grid()
+                    else:
+                        self.canvas.config(bg=prm)
+                        self.draw_grid()
                     continue
                 if cmd == "color":
                     curr_color = raw_args.strip().strip("'\"")
