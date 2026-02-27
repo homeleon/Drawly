@@ -3,6 +3,7 @@ import re
 from PIL import ImageGrab
 import win32clipboard
 from io import BytesIO
+import time
 
 # --- Движок работы с буфером обмена Windows ---
 def send_to_clipboard(image):
@@ -176,7 +177,48 @@ circle_f(-300, 200, 30) # Луна"""
         img = ImageGrab.grab(bbox=(x, y, x + 800, y + 600))
         send_to_clipboard(img)
 
+    def render_to_image(self, script_content):
+        """Выполняет скрипт и возвращает PIL.Image (для CLI-режима)."""
+        self.clear_all()
+        # Парсим спрайты
+        sp_pat = r"sprite\s+(\w+)\s*\{(.*?)\}"
+        self.sprites = {n.lower(): b.strip() for n, b in re.findall(sp_pat, script_content, re.DOTALL)}
+        # Очищаем основной код и запускаем
+        main_s = re.sub(sp_pat, "", script_content, flags=re.DOTALL)
+        self.parse_and_execute(main_s)
+        # Ждём, чтобы tkinter обновил холст
+        self.root.update_idletasks()
+        self.root.update()  # принудительно обновляем окно
+        time.sleep(1)
+
+        # Захватываем изображение
+        x = self.root.winfo_rootx() + self.canvas.winfo_x()
+        y = self.root.winfo_rooty() + self.canvas.winfo_y()
+        return ImageGrab.grab(bbox=(x, y, x + 800, y + 600))
+
 if __name__ == "__main__":
-    root = tk.Tk()
-    VibePainter(root)
-    root.mainloop()
+    import sys
+    import os
+    if len(sys.argv) > 1:
+        script_file = sys.argv[1]
+        if not os.path.isfile(script_file):
+            print(f"❌ File not found: {script_file}")
+            sys.exit(1)
+        # CLI mode: visible window, auto-close after render
+        root = tk.Tk()
+        painter = VibePainter(root)
+        with open(script_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        # Выполняем рендер
+        img = painter.render_to_image(content)
+        out_path = os.path.join(os.getcwd(), "out.png")
+        img.save(out_path)
+        print(f"✅ Rendered and saved to: {out_path}")
+        # Закрываем окно через 200 мс (чтобы пользователь успел увидеть)
+        root.after(200, root.destroy)
+        root.mainloop()
+    else:
+        # GUI mode
+        root = tk.Tk()
+        VibePainter(root)
+        root.mainloop()
