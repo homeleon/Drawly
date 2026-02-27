@@ -158,8 +158,25 @@ circle_f(-300, 200, 30) # Луна"""
             except Exception as e:
                 print(f"Error in command '{cmd}({raw_args})': {e}")
 
+    def strip_comments(self, script):
+        """Удаляет комментарии:
+        - строки, начинающиеся с # или //
+        - всё после # или //, если перед ними пробел (не буква/цифра).
+        Не трогает # в цветах (например, color(#FF0055)), так как перед # нет пробела."""
+        import re
+        cleaned = []
+        for line in script.splitlines():
+            # 1. Удаляем целые строки-комментарии
+            if re.match(r'^\s*[#/]', line):
+                continue
+            # 2. Удаляем часть строки после # или //, если перед ними пробел
+            line = re.sub(r'\s+(?:#|//).*$', '', line)
+            cleaned.append(line.rstrip())
+        return "\n".join(cleaned)
+
     def run(self):
         txt = self.code_text.get("1.0", tk.END)
+        txt = self.strip_comments(txt)
         # Парсим спрайты
         sp_pat = r"sprite\s+(\w+)\s*\{(.*?)\}"
         self.sprites = {n.lower(): b.strip() for n, b in re.findall(sp_pat, txt, re.DOTALL)}
@@ -180,6 +197,7 @@ circle_f(-300, 200, 30) # Луна"""
     def render_to_image(self, script_content):
         """Выполняет скрипт и возвращает PIL.Image (для CLI-режима)."""
         self.clear_all()
+        script_content = self.strip_comments(script_content)
         # Парсим спрайты
         sp_pat = r"sprite\s+(\w+)\s*\{(.*?)\}"
         self.sprites = {n.lower(): b.strip() for n, b in re.findall(sp_pat, script_content, re.DOTALL)}
