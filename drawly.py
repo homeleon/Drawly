@@ -150,9 +150,8 @@ circle_f(-300, 200, 30) # Луна"""
                     self.canvas.create_polygon(pts, outline=curr_color, fill=f, width=curr_width)
 
                 elif cmd == "file_sprite":
-                    # Парсим аргументы: x, y, scale, "filename"
-                    # Используем регулярку, чтобы корректно вытащить имя файла в кавычках
-                    file_match = re.search(r'([^,]+),([^,]+),([^,]+),\s*["\']([^"\']+)["\']', raw_args)
+                    # 1. Более надежный парсинг аргументов (берем всё до кавычек и саму строку)
+                    file_match = re.search(r'([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*["\']([^"\']+)["\']', raw_args)
                     if file_match:
                         fx = float(file_match.group(1).strip())
                         fy = float(file_match.group(2).strip())
@@ -160,14 +159,31 @@ circle_f(-300, 200, 30) # Луна"""
                         fname = file_match.group(4).strip()
                         
                         try:
-                            with open(fname, "r", encoding="utf-8") as f:
-                                file_content = f.read()
-                                # Убираем комментарии из загруженного файла
-                                file_content = self.strip_comments(file_content)
-                                # Рекурсивно выполняем команды из файла
-                                self.parse_and_execute(file_content, dx + fx*scale, dy + fy*scale, scale * fs, curr_color, curr_width)
-                        except FileNotFoundError:
-                            print(f"Error: File {fname} not found")
+                            with open(fname, "r", encoding="utf-8", errors="replace") as f:
+                                content = f.read()
+                                
+                                # --- ПОДДЕРЖКА ОБЫЧНЫХ СПРАЙТОВ ВНУТРИ ФАЙЛА ---
+                                # Если в .drly файле вдруг есть объявление sprite Name { ... }
+                                sp_pat = r"sprite\s+(\w+)\s*\{(.*?)\}"
+                                file_sprites = {n.lower(): b.strip() for n, b in re.findall(sp_pat, content, re.DOTALL)}
+                                self.sprites.update(file_sprites) # Добавляем в общий словарь
+                                
+                                # Очищаем контент от объявлений спрайтов и комментариев
+                                clean_content = re.sub(sp_pat, "", content, flags=re.DOTALL)
+                                clean_content = self.strip_comments(clean_content)
+                                
+                                # --- РЕКУРСИЯ С НОВЫМ КОНТЕКСТОМ ---
+                                # Важно: передаем текущие curr_color и curr_width, чтобы стиль наследовался
+                                self.parse_and_execute(
+                                    clean_content, 
+                                    dx + fx * scale,  # Смещение X с учетом текущего масштаба
+                                    dy + fy * scale,  # Смещение Y с учетом текущего масштаба
+                                    scale * fs,       # Накопленный масштаб
+                                    curr_color, 
+                                    curr_width
+                                )
+                        except Exception as e:
+                            print(f"Ошибка загрузки {fname}: {e}")
                     continue
 
                 # 4. Вызов спрайта
